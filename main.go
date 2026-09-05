@@ -9,6 +9,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/cloudflare/cloudflare-go/v7"
 	"github.com/cloudflare/cloudflare-go/v7/dns"
@@ -19,7 +21,7 @@ import (
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("Failed to load env file relying on system env.")
+		log.Fatalf("No env file found.")
 	}
 
 	currentIP, publicIP, err := GetIPs()
@@ -31,17 +33,19 @@ func main() {
 	fmt.Println("Public IP", publicIP)
 
 	if currentIP != publicIP {
-		fmt.Print("Record update required! Standby.")
-		recordResponse, err := UpdateDNSRecord(currentIP)
+		fmt.Print("Record update required! Updating to:", publicIP)
+		recordResponse, err := UpdateDNSRecord(publicIP)
 		if err != nil {
-			fmt.Printf("Error during record update:", err)
+			log.Fatalf("Error during record update: %v", err)
 		}
 
 		neatJSON, err := json.MarshalIndent(recordResponse, "", "	")
 		if err != nil {
-			fmt.Printf("Failed to neaten JSON:", err)
+			log.Fatalf("Failed to neaten JSON: %v", err)
 		}
 		fmt.Print(string(neatJSON))
+	} else {
+		fmt.Print("IP's Match")
 	}
 }
 
@@ -65,28 +69,33 @@ func UpdateDNSRecord(NewIPAddress string) (*dns.RecordResponse, error) {
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("Failed to update DNS record: %w", err)
+		return nil, fmt.Errorf("Failed to update DNS record: %w\n", err)
 	}
 
 	return recordResponse, nil
 }
 
 func GetIPs() (string, string, error) {
-	ipResponse, err := http.Get("https://api.ipify.org")
+	client := &http.Client{Timeout: 5 * time.Second}
+	ipResponse, err := client.Get("https://api.ipify.org")
 	if err != nil {
-		defer ipResponse.Body.Close()
 		return "", "", fmt.Errorf("Error fetching IP: %v\n", err)
 	}
 	defer ipResponse.Body.Close()
-
 	body, err := io.ReadAll(ipResponse.Body)
 	if err != nil {
 		return "", "", fmt.Errorf("Error reading response: %w\n", err)
 	}
-
-	publicIP := string(body)
+	publicIP := strings.TrimSpace(string(body))
 
 	resolveIP, err := net.LookupIP(os.Getenv("DOMAIN_NAME"))
+	if err != nil {
+		return "", "", fmt.Errorf("Failed resolving Domain: %w", err)
+	}
+	if len(resolveIP) == 0 {
+		return "", "", fmt.Errorf("No records found for domain")
+	}
+
 	currentIP := resolveIP[0].String()
 	return currentIP, publicIP, nil
 }
