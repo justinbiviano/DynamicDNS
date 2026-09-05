@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -28,21 +29,20 @@ func main() {
 
 	fmt.Println("Current IP", currentIP)
 	fmt.Println("Public IP", publicIP)
+
 	if currentIP != publicIP {
-		fmt.Print("FALSE")
+		fmt.Print("Record update required! Standby.")
+		recordResponse, err := UpdateDNSRecord(currentIP)
+		if err != nil {
+			fmt.Printf("Error during record update:", err)
+		}
+
+		neatJSON, err := json.MarshalIndent(recordResponse, "", "	")
+		if err != nil {
+			fmt.Printf("Failed to neaten JSON:", err)
+		}
+		fmt.Print(string(neatJSON))
 	}
-
-	// recordResponse, err := UpdateDNSRecord(os.Getenv("IP_ADDRESS"))
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// neatJSON, err := json.MarshalIndent(recordResponse, "", "	")
-	// if err != nil {
-	// 	log.Printf("Failed to neaten JSON: %w", err)
-	// }
-
-	// fmt.Print(string(neatJSON))
 }
 
 func UpdateDNSRecord(NewIPAddress string) (*dns.RecordResponse, error) {
