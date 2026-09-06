@@ -24,6 +24,20 @@ func main() {
 		log.Fatalf("No env file found.")
 	}
 
+	interval := 5 * time.Minute
+	if v := os.Getenv("CHECK_INTERVAL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			interval = d
+		}
+	}
+
+	for {
+		runCheck()
+		time.Sleep(interval)
+	}
+}
+
+func runCheck() {
 	currentIP, publicIP, err := GetIPs()
 	if err != nil {
 		log.Fatal(err)
