@@ -21,12 +21,14 @@ import (
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("No env file found.")
+		log.Println("No env file found.")
 	}
 
 	interval := 5 * time.Minute
-	if v := os.Getenv("CHECK_INTERVAL"); v != "" {
-		if d, err := time.ParseDuration(v); err == nil {
+	v := os.Getenv("CHECK_INTERVAL")
+	if v != "" {
+		d, err := time.ParseDuration(v)
+		if err == nil {
 			interval = d
 		}
 	}
@@ -40,26 +42,29 @@ func main() {
 func runCheck() {
 	currentIP, publicIP, err := GetIPs()
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 
 	fmt.Println("Current IP", currentIP)
 	fmt.Println("Public IP", publicIP)
 
 	if currentIP != publicIP {
-		fmt.Print("Record update required! Updating to:", publicIP)
+		fmt.Printf("Record update required! Updating to: %s\n", publicIP)
 		recordResponse, err := UpdateDNSRecord(publicIP)
 		if err != nil {
-			log.Fatalf("Error during record update: %v", err)
+			log.Printf("Error during record update: %v", err)
+			return
 		}
 
 		neatJSON, err := json.MarshalIndent(recordResponse, "", "	")
 		if err != nil {
-			log.Fatalf("Failed to neaten JSON: %v", err)
+			log.Printf("Failed to neaten JSON: %v", err)
+			return
 		}
 		fmt.Print(string(neatJSON))
 	} else {
-		fmt.Print("IP's Match")
+		fmt.Println("IP's Match")
 	}
 }
 
